@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Fluxo em Camadas</title>
+<style>
+:root{
+  color-scheme:light;
+  --bg:#f4f4f1;--surface:#fcfcfb;--surface-2:#f0efec;--grp:rgba(240,239,234,.55);--grp-line:#d9d8d2;
+  --ink:#0b0b0b;--ink-2:#52514e;--ink-3:#7a7974;--line:#e1e0db;--flow:#9b9a94;
+  --acc:#0f6e5c;--acc-soft:#e5f2ee;
+  --c1:#2a78d6;--c2:#eb6834;--c3:#1baf7a;--c4:#eda100;--c5:#e87ba4;--c6:#008300;--c7:#4a3aa7;
+  --good:#0ca30c;--warning:#fab219;--serious:#ec835a;--critical:#d03b3b;
+  --chip-good:#e6f5e6;--chip-warning:#fff4dc;--chip-serious:#fdeee7;--chip-critical:#fbe7e7;--chip-muted:#efeeea;
+  --svc:#2a78d6;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --bg:#121211;--surface:#1a1a19;--surface-2:#242422;--grp:rgba(36,36,34,.5);--grp-line:#34342f;
+    --ink:#fff;--ink-2:#c3c2b7;--ink-3:#8f8e86;--line:#2e2e2b;--flow:#6f6e68;
+    --acc:#4fc2a6;--acc-soft:#16302a;
+    --c1:#3987e5;--c2:#d95926;--c3:#199e70;--c4:#c98500;--c5:#d55181;--c6:#008300;--c7:#9085e9;
+    --chip-good:#173317;--chip-warning:#3a2f12;--chip-serious:#3a2419;--chip-critical:#3b1d1d;--chip-muted:#2a2a28;
+    --svc:#3987e5;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#121211;--surface:#1a1a19;--surface-2:#242422;--grp:rgba(36,36,34,.5);--grp-line:#34342f;
+  --ink:#fff;--ink-2:#c3c2b7;--ink-3:#8f8e86;--line:#2e2e2b;--flow:#6f6e68;
+  --acc:#4fc2a6;--acc-soft:#16302a;
+  --c1:#3987e5;--c2:#d95926;--c3:#199e70;--c4:#c98500;--c5:#d55181;--c6:#008300;--c7:#9085e9;
+  --chip-good:#173317;--chip-warning:#3a2f12;--chip-serious:#3a2419;--chip-critical:#3b1d1d;--chip-muted:#2a2a28;
+  --svc:#3987e5;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:13px/1.45 Inter,system-ui,"Segoe UI",sans-serif}
+.top{padding:18px 16px 10px;max-width:1880px;margin:0 auto}
+.top h1{font-size:21px;margin:0}
+.top p{margin:3px 0 0;color:var(--ink-2);font-size:12.5px}
+.bar{position:sticky;top:0;z-index:30;background:color-mix(in srgb,var(--bg) 92%,transparent);backdrop-filter:blur(6px);border-bottom:1px solid var(--line)}
+.bar-in{max-width:1880px;margin:0 auto;padding:10px 16px;display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center}
+.grp-t{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.grp-t .lab{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3);margin-right:2px}
+.tg{border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;padding:5px 11px 5px 9px;font:inherit;font-size:12.5px;cursor:pointer;display:inline-flex;gap:6px;align-items:center}
+.tg svg{color:var(--acc);flex:none}
+.tg .box{width:13px;height:13px;border-radius:4px;border:1.5px solid var(--ink-3);display:inline-grid;place-items:center;font-size:9px;line-height:1}
+.tg[aria-pressed="true"]{background:var(--acc-soft);border-color:var(--acc)}
+.tg[aria-pressed="true"] .box{background:var(--acc);border-color:var(--acc);color:#fff}
+.tg[aria-pressed="true"] .box:after{content:"✓"}
+.btn{border:1px solid var(--line);background:var(--surface);color:var(--ink-2);border-radius:8px;padding:5px 10px;font:inherit;font-size:12px;cursor:pointer}
+.btn:hover,.tg:hover{border-color:var(--ink-3)}
+.sep{width:1px;height:22px;background:var(--line)}
+.wrap{max-width:1880px;margin:0 auto;padding:12px 16px 40px;display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:14px;align-items:start}
+.scroller{overflow-x:auto;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+.dg{position:relative;min-width:1320px;padding:26px 28px 28px}
+#edges{position:absolute;inset:0;width:100%;height:100%;z-index:0;overflow:visible}
+.row{position:relative;z-index:1;display:grid;gap:70px;align-items:start}
+.r1{grid-template-columns:.85fr 2fr .9fr 2fr}
+.r2{grid-template-columns:repeat(4,1fr);margin-top:78px}
+.gp{--ph:var(--c1);background:color-mix(in srgb,var(--ph) 7%,var(--surface));border:1.5px solid color-mix(in srgb,var(--ph) 30%,var(--grp-line));border-top:5px solid var(--ph);border-radius:16px;padding:10px 10px 12px;min-width:0}
+.gp.gapg{border-left-style:dashed;border-right-style:dashed;border-bottom-style:dashed}
+.gh{display:flex;align-items:center;gap:9px;margin:0 2px 9px}
+.gh .ic{width:34px;height:34px;border-radius:10px;background:color-mix(in srgb,var(--ph) 18%,transparent);color:var(--ph);display:grid;place-items:center;flex:none}
+.gh .ph{display:block;font-size:9.5px;text-transform:uppercase;letter-spacing:.07em;color:var(--ph);font-weight:700;margin-bottom:1px}
+.gh .num{width:auto!important;height:18px!important;padding:0 6px;border-radius:5px!important;font-size:10.5px!important;background:var(--ph)!important;color:#fff!important;margin-right:5px;display:inline-grid!important;vertical-align:1px}
+.gh .num{width:24px;height:24px;border-radius:50%;background:var(--ink);color:var(--surface);display:grid;place-items:center;font-weight:700;font-size:12px;flex:none}
+.gh .num.w{width:auto;padding:0 8px;border-radius:12px;font-size:11px}
+.gh .t{font-weight:650;font-size:13.5px;line-height:1.25}
+.gh .t small{display:block;font-weight:400;color:var(--ink-3);font-size:11px}
+.acts{font-size:11.5px;color:var(--ink-2);margin:0 2px 8px;padding:6px 8px;border-radius:8px;border:1px dashed var(--ink-3);background:var(--surface)}
+.acts .actors{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px}
+.actor{display:inline-flex;align-items:center;gap:4px;background:var(--surface-2);border-radius:999px;padding:1px 8px 1px 3px;font-size:11px;color:var(--ink)}
+.actor svg{flex:none}
+.acts .hoje{margin-top:5px;font-style:italic}
+.nodes{display:grid;gap:8px;align-items:start}
+.n2{grid-template-columns:1fr 1fr}
+.node{background:var(--surface);border:1.5px solid var(--line);border-radius:10px;padding:8px 9px;cursor:pointer;transition:opacity .15s,box-shadow .15s;position:relative;min-width:0}
+.node:hover,.node:focus-visible{box-shadow:0 0 0 2px var(--acc);outline:none}
+.node.sel{box-shadow:0 0 0 2.5px var(--acc)}
+.node.dim{opacity:.25}
+.node.gap{border-style:dashed}
+.node.out{border-style:dashed}
+.node .code .ty{display:inline-flex;align-items:center;gap:4px}
+.node .code .ty svg{color:var(--ink-2)}
+.node.gap .code .ty svg{color:var(--critical)}
+.node .code{font-size:10.5px;color:var(--ink-3);display:flex;justify-content:space-between;gap:4px;font-variant-numeric:tabular-nums}
+.node .nm{font-weight:650;font-size:13px;line-height:1.2;margin-top:1px}
+.node .sb{font-size:11.5px;color:var(--ink-2);line-height:1.25}
+.node .ly{margin-top:6px;padding-top:6px;border-top:1px solid var(--line);font-size:11.5px}
+.node .ly .k{font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-3);display:flex;align-items:center;gap:4px;margin-bottom:3px}
+.node .ly .k svg{color:var(--acc)}
+.node .stdot{position:absolute;top:-7px;right:-7px}
+.tags{display:flex;flex-wrap:wrap;gap:3px}
+.tag{background:var(--surface-2);border-radius:4px;padding:0 5px;font-size:11px;line-height:17px;word-break:break-word}
+.tag.ia{background:var(--acc-soft);font-weight:600}
+.tag.key{border:1px solid var(--line);background:transparent}
+.infra{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600}
+.infra .ii{width:20px;height:20px;border-radius:6px;display:grid;place-items:center;color:#fff;flex:none}
+.actor svg{color:var(--c2)}
+.lg .ph-sw{width:14px;height:14px;border-radius:4px;flex:none}
+.dot{width:9px;height:9px;border-radius:50%;flex:none;display:inline-block}
+.chip{display:inline-flex;align-items:center;gap:4px;border-radius:999px;padding:0 7px 0 3px;font-size:11px;line-height:17px;white-space:nowrap}
+.chip i{font-style:normal;font-weight:700;font-size:9px;width:12px;height:12px;border-radius:50%;display:inline-grid;place-items:center;color:#fff}
+.chip.ico{padding:0;width:18px;height:18px;justify-content:center}
+.chip.ico i{width:16px;height:16px;font-size:10px}
+.s-ok{background:var(--chip-good)}.s-ok i{background:var(--good)}
+.s-open{background:var(--chip-warning)}.s-open i{background:var(--warning);color:#0b0b0b}
+.s-doc{background:var(--chip-serious)}.s-doc i{background:var(--serious);color:#0b0b0b}
+.s-none{background:var(--chip-critical)}.s-none i{background:var(--critical)}
+.s-out{background:var(--chip-muted);color:var(--ink-2)}.s-out i{background:var(--ink-3)}
+.mb{height:5px;border-radius:3px;background:var(--surface-2);margin-top:5px;position:relative;overflow:hidden}
+.mb b{position:absolute;inset:0 auto 0 0;background:var(--c1)}
+.trail{--ph:var(--c5);position:relative;z-index:1;margin-top:78px;display:grid;grid-template-columns:auto 1fr;gap:16px;align-items:center;border:1.5px dashed color-mix(in srgb,var(--ph) 45%,var(--grp-line));border-left:5px solid var(--ph);border-radius:16px;padding:10px 14px;background:color-mix(in srgb,var(--ph) 7%,var(--surface))}
+.trail .nodes{grid-template-columns:repeat(auto-fill,minmax(200px,240px))}
+.svcband{position:relative;z-index:1;margin-top:70px;padding-top:12px;border-top:2px dashed var(--line)}
+.svcband h3{margin:0 0 10px;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3)}
+.svcs{display:flex;flex-wrap:wrap;gap:14px 28px}
+.svc{--sc:var(--svc);background:color-mix(in srgb,var(--sc) 9%,var(--surface));border:1.5px solid var(--sc);border-radius:20px;padding:4px 12px 4px 5px;font-size:12px;cursor:pointer;display:inline-flex;align-items:center;gap:7px}
+.svc .si{width:24px;height:24px;border-radius:50%;background:var(--sc);color:#fff;display:grid;place-items:center;flex:none}
+.svcgrp{display:flex;flex-direction:column;gap:6px}
+.svcgrp .gt{font-size:10.5px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.05em;display:flex;align-items:center;gap:5px}
+.svcgrp .gt .dot{width:8px;height:8px}
+.svcgrp .items{display:flex;flex-wrap:wrap;gap:8px}
+.svc small{color:var(--ink-3);margin-left:4px}
+.svc.dim{opacity:.25}
+.side{position:sticky;top:64px;display:flex;flex-direction:column;gap:12px;max-height:calc(100vh - 80px);overflow:auto}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.card h2{font-size:13px;margin:0 0 8px}
+.lg{display:flex;flex-direction:column;gap:5px;font-size:12px;color:var(--ink-2)}
+.lg .row2{display:flex;align-items:center;gap:7px}
+.lg .h{display:flex;align-items:center;gap:5px;font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3);margin-top:6px}
+.lg .h:first-child{margin-top:0}
+.pn h3{margin:0;font-size:16px}
+.pn .sb{color:var(--ink-2);font-size:12px;margin-bottom:8px}
+.pn dl{margin:0;display:grid;grid-template-columns:86px 1fr;gap:5px 8px;font-size:12px}
+.pn dt{color:var(--ink-3)}.pn dd{margin:0}
+.pn .empty{color:var(--ink-3);font-size:12px}
+.pn ul{margin:0;padding-left:16px}
+#tip{position:fixed;z-index:50;pointer-events:none;max-width:300px;background:var(--surface);color:var(--ink);border:1px solid var(--line);box-shadow:0 6px 24px rgba(0,0,0,.18);border-radius:8px;padding:7px 9px;font-size:12px;opacity:0;transition:opacity .08s}
+#tip b{display:block}#tip span{color:var(--ink-2)}
+.foot{max-width:1880px;margin:0 auto;padding:0 16px 30px;color:var(--ink-3);font-size:11.5px}
+@media (max-width:1100px){.wrap{grid-template-columns:1fr}.side{position:static;max-height:none}}
+</style>
+</head>
+<body>
+<div class="top">
+  <h1>Ecossistema de Compras PE · Fluxo em camadas</h1>
+  <p>Base: fluxo do macroprocesso na transição planejada da ATI (slide 3 da apresentação de Rafael), da demanda à execução contratual. Ative camadas para sobrepor visões. Clique num sistema para ver tudo o que se sabe dele. Retrato de 06/10/2026, com 5 de 11 componentes analisados.</p>
+</div>
+<div class="bar"><div class="bar-in">
+  <div class="grp-t" id="g1"><span class="lab">Camadas</span></div>
+  <span class="sep"></span>
+  <div class="grp-t" id="g2"><span class="lab">Sugeridas</span></div>
+  <span class="sep"></span>
+  <div class="grp-t"><span class="lab">Atalhos</span>
+    <button class="btn" data-preset="tec">Visão técnica</button>
+    <button class="btn" data-preset="ges">Visão de gestão</button>
+    <button class="btn" data-preset="all">Tudo</button>
+    <button class="btn" data-preset="none">Só a base</button>
+  </div>
+  <span class="sep"></span>
+  <div class="grp-t"><button class="btn" data-theme-set="light">Claro</button><button class="btn" data-theme-set="dark">Escuro</button><button class="btn" data-theme-set="auto">Sistema</button></div>
+</div></div>
+
+<div class="wrap">
+  <div class="scroller"><div class="dg" id="dg">
+    <svg id="edges" aria-hidden="true"></svg>
+    <div class="row r1" id="r1"></div>
+    <div class="row r2" id="r2"></div>
+    <div class="trail" id="trail"></div>
+    <div class="svcband" id="svcband" hidden><h3>Serviços compartilhados e fontes externas</h3><div class="svcs" id="svcs"></div></div>
+  </div></div>
+  <aside class="side">
+    <div class="card pn" id="panel"></div>
+    <div class="card"><h2>Legenda</h2><div class="lg" id="legend"></div></div>
+  </aside>
+</div>
+<p class="foot">Fontes: leitura do macroprocesso da ATI v1, dossiês e fichas de discovery de PE+, SIPLAC, Gerador de TR, Mapear e ATAIDE, relatório consolidado v1. Itens "a analisar" pertencem a componentes ainda sem dossiê. (H) indica hipótese da SETD.</p>
+<div id="tip" role="tooltip"></div>
+
+<script>
+/* ================= DADOS ================= */
+const LAYERS=[
+ {id:'proc',n:'Processos e usuários',g:1},
+ {id:'stack',n:'Stack',g:1},
+ {id:'infra',n:'Infra',g:1},
+ {id:'serv',n:'Serviços',g:1},
+ {id:'integ',n:'Integrações',g:2},
+ {id:'dados',n:'Dados e chaves',g:2},
+ {id:'gov',n:'Governança',g:2},
+ {id:'status',n:'Status e sobreposições',g:2},
+ {id:'fora',n:'Fora do desenho ATI',g:2}
+];
+const LANES=[
+ {id:1,n:'PCA e DFD',acts:'Elaboração do DFD e consolidação do PCA',users:['Órgão requisitante','Planejamento do órgão (H)'],hoje:'Hoje o DFD nasce no PE Integrado'},
+ {id:2,n:'Planejamento',acts:'ETP, TR, DDO e IRP',users:['Agente de fase preparatória','Área técnica e autoridade do órgão','ATI (objetos de TI)','Pregoeiras SAD'],hoje:'Hoje: SIPLAC e Construtor de TRs em paralelo'},
+ {id:3,n:'Pesquisa de preços',acts:'Cotação e pesquisa de preços',users:['Servidoras SAD','GGAFP','GCOMP'],hoje:'No planejado, agrupada no bloco da etapa 2'},
+ {id:4,n:'Central de Licitações',acts:'Distribuição, controle prévio SECOP/SAD, cotas jurídicas, parecer PGE',users:['SECOP/SAD','PGE','GGCLE'],hoje:'SGC a analisar'},
+ {id:5,n:'Seleção do fornecedor',acts:'SC, edital, propostas, lances, julgamento, habilitação, negociação',users:['Comprador e apoio','Financeiro','Autoridade competente','Pregoeiro','Fornecedor'],hoje:'Três caminhos por modalidade'},
+ {id:6,n:'Registro de resultado',acts:'Adjudicação, homologação, ARP e contratos',users:['Servidoras GGPOC'],hoje:'Sem sistema no planejado; ATAIDE atua aqui'},
+ {id:7,n:'Execução orçamentária e financeira',acts:'Destaque, empenho, liquidação, pagamento',users:['Financeiro dos órgãos (H)'],hoje:'e-Fisco nos três momentos'},
+ {id:8,n:'Almoxarifado e patrimônio',acts:'Recebimento, autorizações de fornecimento, controle patrimonial',users:['Almoxarifado e patrimônio (H)'],hoje:'Única etapa que o PE Integrado mantém'},
+ {id:9,n:'Registro e execução contratual',acts:'Registro de contratos, gestão da execução, aditivos',users:['Gestor e fiscal de contrato (H)'],hoje:'Hoje no SEI; PE+ sem documentação desta etapa'},
+ {id:'T',n:'Gestão de fornecedores',acts:'Cadastro e gestão de fornecedores (trilha transversal)',users:['Fornecedores','GGPOC'],hoje:'Antes no e-Fisco'}
+];
+const INFRA={
+ ati:['Datacenter ATI','--c1'],cloud:['Nuvem de fornecedor','--c7'],ext:['Fora do Estado','--c2'],mix:['Misto ATI e CIn','--c4'],
+ vm:['VM do Estado','--c3'],fed:['Governo federal','--c5'],sefaz:['SEFAZ','--c6'],tbd:['A analisar','--ink-3']
+};
+const GOV={
+ pemais:{dono:'GSIG/SAD',cons:'Basis',focal:'Felipe Cabral Ribeiro (GSIG); Basis: William Alex',instr:'Contrato 20/2021 (projeto PE-Integrado)'},
+ pei:{dono:'GSIG/SAD',cons:'Basis',focal:'Felipe Cabral Ribeiro (GSIG)',instr:'Contrato 20/2021'},
+ siplac:{dono:'ATI',cons:'Lanlink',focal:'Francisco Athayde Jr. (ATI); Lanlink: Almir Maranhão Jr.',instr:'Ordem de serviço mensal'},
+ ctr:{dono:'SAD',cons:'CIn/UFPE',focal:'Filipe Calegario (CIn); Mariângela (SAD)',instr:'Acordo PD&I SAD/UFPE, até 31/12/2026'},
+ mapear:{dono:'SAD',cons:'CIn/UFPE',focal:'Bruno Rodrigo e Aline Pessoa (SAD); Pedro Lima (CIn)',instr:'Acordo PD&I SAD/UFPE, até 31/12/2026'},
+ ataide:{dono:'SAD/GGPOC (demanda)',cons:'SETD',focal:'João Carlos da Silva Carvalho (SETD)',instr:'Equipe interna'},
+ ati:{dono:'ATI / GGCLE',cons:'A identificar',focal:'GGCLE, nome a identificar',instr:'A identificar'},
+ fed:{dono:'Governo federal',cons:'Federal',focal:'Não se aplica',instr:'Adesão federal'},
+ sefaz:{dono:'SEFAZ',cons:'A identificar',focal:'A identificar',instr:'A identificar'},
+ portal:{dono:'SETD / GGPOC',cons:'A identificar',focal:'GGPOC, nome a identificar',instr:'A identificar'},
+ gap:{dono:'Não definido',cons:'Não definido',focal:'ATI (Rafael), a perguntar',instr:'Não se aplica'}
+};
+const N=[
+ {id:'pe-pca',lane:1,code:'C01',name:'PE+',sub:'PCA e DFD',grp:'pemais',st:'doc',stTxt:'Previsto, sem documentação',
+  stack:['.NET 9','Angular 19','PostgreSQL 15'],infra:['ati','Kubernetes RKE2 no datacenter da ATI'],users:['A definir'],keys:['DFD (a definir)'],gov:'pemais',mat:'Não documentado',
+  note:'A ATI coloca o PE+ nesta etapa no planejado; o PE+ documentado não cobre PCA nem DFD.'},
+ {id:'siplac',lane:2,code:'C04',name:'SIPLAC',sub:'SC, ETP e TR com aprovação e assinatura',grp:'siplac',st:'ok',compl:75,
+  stack:['Power Pages','Power Apps','Power Automate','Dataverse (H)'],ia:'Agente de texto do TR',infra:['cloud','Microsoft Power Platform; ambiente não documentado'],
+  users:['Agente de fase preparatória','Área técnica do órgão','Autoridade do órgão','ATI (TI)'],keys:['DFD','SC','Nº processo','e-Fisco','CATMAT/CATSER','CPF','fileID XVIA'],gov:'siplac',mat:'MVP com processo maduro',
+  note:'Componente de maior abrangência funcional analisado; menos documentado em arquitetura.'},
+ {id:'ctr',lane:2,code:'C06',name:'Construtor de TRs UFPE',sub:'Gerador de TR do CIn: TR e ETP por regras',grp:'ctr',st:'ok',compl:85,
+  stack:['Web app (framework a confirmar)','PostgreSQL','Google OAuth','PostHog'],infra:['ext','Vercel; código no GitHub em conta pessoal'],
+  users:['Pregoeiras SAD','GGAFP'],keys:['Sem chave de processo','Item via planilha'],gov:'ctr',mat:'Beta institucional',
+  note:'Regras rastreáveis ao Instrumento Padronizado, sem IA generativa no texto.'},
+ {id:'mapear',lane:2,code:'C09',name:'Mapear',sub:'Mapa de preços (no planejado, dentro da etapa 2)',grp:'mapear',st:'ok',compl:75,
+  stack:['mapear-api REST/OpenAPI','PostgreSQL','FAISS'],ia:'Embeddings Gemini/OpenAI e reordenação',infra:['mix','VM ATI (mapear.pe.gov.br) e VM CIn (mapear.cin.ufpe.br)'],
+  users:['Servidoras SAD','GGAFP','GCOMP'],keys:['e-Fisco','CATMAT','CNPJ'],gov:'mapear',mat:'Piloto em uso institucional',
+  note:'Duas instâncias sem oficial; preço servido sem data do dado.'},
+ {id:'cot',lane:2,code:'K01',name:'Cotação',sub:'Capacidade sem sistema nomeado',grp:'gap',st:'none',gap:1,stack:[],infra:['tbd','Não se aplica'],users:['A definir'],keys:[],gov:'gap',mat:'Lacuna',note:'Pergunta à ATI: sistema próprio ou dentro do SIPLAC?'},
+ {id:'irp',lane:2,code:'K02',name:'IRP',sub:'Capacidade sem sistema nomeado',grp:'gap',st:'none',gap:1,stack:[],infra:['tbd','Não se aplica'],users:['A definir'],keys:[],gov:'gap',mat:'Lacuna',note:'SIPLAC tem atividade de IRP no TR; antes podia ser feita no PE Integrado.'},
+ {id:'sgc',lane:4,code:'C05',name:'SGC',sub:'Sistema de Governança de Contratações',grp:'sgc',st:'open',
+  stack:['A analisar'],infra:['tbd','A analisar'],users:['GGCLE','SECOP/SAD (H)'],keys:['Nº processo (padrão sequencial por ano)'],gov:'ati',mat:'A analisar',
+  note:'Recebe AFP do SIPLAC e cópia manual de TR e mapa; aceita importação por arquivo.'},
+ {id:'cgov',lane:5,code:'C03',name:'Compras.gov.br',sub:'Licitações (pregão)',grp:'cgov',st:'open',
+  stack:['Plataforma federal'],infra:['fed','Governo federal'],users:['Pregoeiro','Fornecedor'],keys:['Nº processo','CATMAT/CATSER','CNPJ'],gov:'fed',mat:'Em produção',
+  note:'Divisão real de pregão com o PE Integrado a esclarecer.'},
+ {id:'cred',lane:5,code:'C07',name:'Credencia PE',sub:'Credenciamento',grp:'cred',st:'open',stack:['A analisar'],infra:['tbd','A analisar'],users:['A analisar'],keys:[],gov:'ati',mat:'A analisar',note:'Poucas interfaces sinalizadas até aqui.'},
+ {id:'sicx',lane:5,code:'C08',name:'SICX',sub:'Confirmar se é o SICS do inventário',grp:'sicx',st:'open',stack:['A analisar'],infra:['tbd','A analisar'],users:['A analisar'],keys:[],gov:'ati',mat:'Em descoberta',note:'Nome divergente entre inventário e ATI.'},
+ {id:'pe-cd',lane:5,code:'C01',name:'PE+',sub:'Compras Diretas (PEMAIS, dispensa com disputa)',grp:'pemais',st:'ok',compl:80,
+  stack:['.NET 9','Angular 19','PostgreSQL 15','Redis 7','RabbitMQ','Keycloak 22'],infra:['ati','Kubernetes RKE2 no datacenter da ATI, GitOps, observabilidade'],
+  users:['Comprador e apoio','Financeiro','Autoridade competente','Fornecedor'],keys:['Nº processo','SC','ID PNCP','CNPJ','CPF'],gov:'pemais',mat:'Módulo em homologação',
+  note:'Único papel do PE+ documentado. Depende do PE Integrado na entrada e na saída.'},
+ {id:'k03',lane:6,code:'K03',name:'Sem sistema',sub:'Registro de resultado no planejado',grp:'gap',st:'none',gap:1,stack:[],infra:['tbd','Não se aplica'],users:['Servidoras GGPOC'],keys:[],gov:'gap',mat:'Lacuna',note:'Pergunta à ATI: quem faz o registro de resultado no desenho alvo?'},
+ {id:'ataide',lane:6,code:'C10',name:'ATAIDE',sub:'Gerador de ARP de pregão',grp:'ataide',st:'out',stTxt:'Analisado, fora do desenho ATI',compl:85,fora:1,
+  stack:['Next.js 15','FastAPI','Redis 7','docxtpl','Selenium'],infra:['vm','VM do Estado; GitLab do Estado'],users:['Servidoras GGPOC'],keys:['Nº processo (PE Integrado)','e-Fisco','CNPJ'],gov:'ataide',mat:'Homologação',
+  note:'Não aparece nos slides da ATI. Rota que escreve no SEI está sem autenticação.'},
+ {id:'efisco',lane:7,code:'C12',name:'e-Fisco',sub:'Proposto como componente',grp:'efisco',st:'open',stTxt:'Em aberto (proposto)',
+  stack:['A analisar'],infra:['sefaz','SEFAZ'],users:['Financeiro dos órgãos (H)'],keys:['Código de item e-Fisco (dono)'],gov:'sefaz',mat:'Em produção',
+  note:'Fonte da liquidação usada pelo Mapear; candidato a dono da chave de item.'},
+ {id:'pei',lane:8,code:'C02',name:'PE Integrado',sub:'Almoxarifado e patrimônio no planejado; centro de fato hoje',grp:'pei',st:'open',
+  stack:['A analisar'],infra:['tbd','A analisar (Basis, contrato 20/2021)'],users:['Órgãos','Almoxarifado e patrimônio (H)'],keys:['DFD','SC','Nº processo','e-Fisco'],gov:'pei',mat:'Em produção',
+  note:'Origem de DFD e SC, fonte do pregão do ATAIDE, destino do PE+, gera ARP e contrato da dispensa.'},
+ {id:'pe-ec',lane:9,code:'C01',name:'PE+',sub:'Registro e execução contratual',grp:'pemais',st:'doc',stTxt:'Previsto, sem documentação',
+  stack:['.NET 9','Angular 19','PostgreSQL 15'],infra:['ati','Kubernetes RKE2 no datacenter da ATI'],users:['A definir'],keys:['Nº contrato (a definir)'],gov:'pemais',mat:'Não documentado',
+  note:'A ATI coloca o PE+ nesta etapa; hoje SEI e PE Integrado fazem esse papel.'},
+ {id:'portal',lane:'T',code:'C11',name:'Novo Portal de Fornecedores',sub:'Gestão de fornecedores',grp:'portal',st:'open',stack:['A analisar'],infra:['tbd','A analisar'],users:['Fornecedores','GGPOC'],keys:['CNPJ'],gov:'portal',mat:'Em ideia',note:'Fonte da verdade do fornecedor a definir.'}
+];
+const SV=[
+ {id:'bigdata',n:'BigData PE',o:'SEFAZ',d:'Fonte comum de Mapear, ATAIDE e SIPLAC; credenciais por coleção, VPN, carga completa'},
+ {id:'peigw',n:'PEI-Gateway',o:'Basis',d:'Camada de APIs sobre o PE Integrado, construída para o PE+'},
+ {id:'xvia',n:'XVIA / AssinaPE',o:'ATI',d:'Assinatura digital do Estado, usada pelo SIPLAC'},
+ {id:'keycloak',n:'Keycloak',o:'PE+',d:'Identidade do PEMAIS, federando gov.br e ExpressoPE'},
+ {id:'govbr',n:'gov.br',o:'Federal',d:'Identidade de cidadão e fornecedor'},
+ {id:'expresso',n:'ExpressoPE',o:'ATI',d:'Identidade de servidor'},
+ {id:'google',n:'Google OAuth',o:'Externo',d:'Login do Construtor de TRs, fora do Estado'},
+ {id:'sei',n:'SEI',o:'Proposto C13',d:'Destino documental de Mapear, Construtor de TRs e ATAIDE; integração do PE+ pendente'},
+ {id:'pncp',n:'PNCP',o:'Federal',d:'Publicação (PE+) e fonte de preço (Mapear)'},
+ {id:'catmat',n:'CATMAT / CATSER',o:'Federal',d:'Catálogo de itens, ponte semântica'},
+ {id:'brasilapi',n:'Receita (BrasilAPI)',o:'Externo',d:'Cadastro de empresas do ATAIDE'}
+];
+const SL=[
+ ['pe-cd','keycloak','Identidade','built'],['pe-cd','govbr','Fornecedor (OIDC)','built'],['pe-cd','expresso','Servidor (SAML)','built'],['pe-cd','peigw','Consome APIs do PE Integrado','built'],['pe-cd','pncp','Publicação','built'],['pe-cd','sei','Integração aguardando','road'],
+ ['siplac','govbr','Login','spec'],['siplac','expresso','Login','spec'],['siplac','xvia','Assinatura por API e microfrontend','spec'],['siplac','bigdata','DFD e correspondência e-Fisco × CATMAT','spec'],
+ ['ctr','google','Login','built'],['ctr','sei','Anexação manual','manual'],
+ ['mapear','bigdata','Liquidação e licitações (tokens emprestados)','built'],['mapear','catmat','Correspondência por similaridade','built'],['mapear','pncp','Preço secundário','built'],['mapear','sei','Anexação manual do PDF','manual'],
+ ['ataide','bigdata','Coleções PEINTEGRADO_*','built'],['ataide','brasilapi','Cadastro de empresas','built'],['ataide','sei','Selenium com conta de serviço','built'],
+ ['pei','peigw','Provê APIs','built'],['pei','bigdata','Publica coleções','built'],['efisco','bigdata','Publica liquidação','built']
+];
+const IL=[
+ ['pei','pe-cd','SC, usuários, feriados e marcas via PEI-Gateway','built'],
+ ['pe-cd','pei','Importação da compra direta homologada','built'],
+ ['pei','siplac','DFD (dados mínimos) via BigData','spec'],
+ ['siplac','sgc','AFP, um por processo','spec'],
+ ['efisco','mapear','Liquidação via BigData','built'],
+ ['mapear','ctr','Planilha de itens para o Anexo A','manual'],
+ ['ctr','sgc','Conversor de importação (roteiro do CIn)','road'],
+ ['pei','efisco','ARP, contrato e envio ao e-Fisco após a dispensa','built'],
+ ['pei','ataide','Pregão, itens e vencedores via BigData','built']
+];
+const OL=[
+ ['siplac','ctr','O1 · TR e ETP','alto'],
+ ['siplac','mapear','O2 e O3 · Mapa de preços e correspondência e-Fisco × CATMAT','medio'],
+ ['pe-pca','pei','O5 · PCA e DFD, hoje no PE Integrado','medio'],
+ ['pe-ec','pei','O6 · Contratos, hoje no PE Integrado e no SEI','medio'],
+ ['ataide','pei','O4 · Geração de ARP (pregão × dispensa)','medio'],
+ ['portal','pei','O7 · Cadastro de fornecedor','medio']
+];
+const STATE={built:['Construída','0'],spec:['Especificada','6 4'],manual:['Manual','2 4'],road:['Roteiro ou pendente','1 6']};
+const ST={ok:['s-ok','✓','Analisado'],open:['s-open','…','Em aberto'],doc:['s-doc','!','Previsto, sem documentação'],none:['s-none','✕','Sem sistema'],out:['s-out','↗','Fora do desenho ATI']};
+
+
+/* ================= ICONES E CORES ================= */
+const IC={
+ clipboard:'<rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M9 12h6M9 16h4"/>',
+ filecheck:'<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="m9 15 2 2 4-4"/>',
+ landmark:'<path d="M3 22h18M6 18v-7M10 18v-7M14 18v-7M18 18v-7M12 2l8 5H4z"/>',
+ gavel:'<path d="m14 13-7.5 7.5a2.1 2.1 0 0 1-3-3L11 10"/><path d="m16 16 6-6M8 8l6-6M9 7l8 8M21 11l-8-8"/>',
+ award:'<circle cx="12" cy="8" r="6"/><path d="M15.5 13 17 22l-5-3-5 3 1.5-9"/>',
+ coins:'<circle cx="8" cy="8" r="6"/><path d="M18.1 10.4A6 6 0 1 1 10.3 18"/><path d="M7 6h1v4"/>',
+ package:'<path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="M3 8l9 5 9-5M12 13v8"/>',
+ contract:'<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 17c1.5-2 3-2 4 0s2.5 1 4-1"/>',
+ users:'<circle cx="9" cy="7" r="4"/><path d="M2 21v-1a6 6 0 0 1 12 0v1"/><path d="M16 3.1a4 4 0 0 1 0 7.8M22 21v-1a6 6 0 0 0-4-5.6"/>',
+ user:'<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/>',
+ layers:'<path d="m12 2 10 5-10 5L2 7z"/><path d="m2 12 10 5 10-5M2 17l10 5 10-5"/>',
+ server:'<rect x="3" y="3" width="18" height="7" rx="2"/><rect x="3" y="14" width="18" height="7" rx="2"/><path d="M7 6.5h.01M7 17.5h.01"/>',
+ plug:'<path d="M9 2v6M15 2v6M6 8h12v4a6 6 0 0 1-12 0z"/><path d="M12 18v4"/>',
+ arrows:'<path d="M3 7h14l-4-4M21 17H7l4 4"/>',
+ key:'<circle cx="7.5" cy="15.5" r="4.5"/><path d="m10.7 12.3 9.3-9.3M17 6l3 3M14 9l2 2"/>',
+ shield:'<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/>',
+ flag:'<path d="M4 22V4M4 4h13l-2 4 2 4H4"/>',
+ eyeoff:'<path d="M3 3l18 18"/><path d="M10.6 5.1A10 10 0 0 1 12 5c7 0 10 7 10 7a17 17 0 0 1-3 4M6.6 6.6A17 17 0 0 0 2 12s3 7 10 7a9.7 9.7 0 0 0 5.4-1.6"/>',
+ app:'<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M7 6.5h.01M10 6.5h.01"/>',
+ puzzle:'<path d="M12 3a2 2 0 0 1 2 2v1h4v4h-1a2 2 0 1 0 0 4h1v4h-4v-1a2 2 0 1 0-4 0v1H6v-4h1a2 2 0 1 0 0-4H6V6h4V5a2 2 0 0 1 2-2z"/>',
+ globe:'<circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20"/>',
+ cloud:'<path d="M17.5 19H7a5 5 0 1 1 1.4-9.8A6 6 0 0 1 20 11a4 4 0 0 1-2.5 8z"/>',
+ alert:'<path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/>',
+ cpu:'<rect x="5" y="5" width="14" height="14" rx="2"/><path d="M9 9h6v6H9zM9 1v4M15 1v4M9 19v4M15 19v4M1 9h4M1 15h4M19 9h4M19 15h4"/>',
+ help:'<circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3M12 17h.01"/>',
+ database:'<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 1.7 4 3 9 3s9-1.3 9-3V5M3 12c0 1.7 4 3 9 3s9-1.3 9-3"/>',
+ pen:'<path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>',
+ idcard:'<rect x="2" y="5" width="20" height="14" rx="2"/><circle cx="8" cy="12" r="2"/><path d="M14 10h4M14 14h4"/>',
+ file:'<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h6"/>',
+ megaphone:'<path d="m3 11 18-5v12L3 14v-3z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/>',
+ book:'<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V2H6.5A2.5 2.5 0 0 0 4 4.5v15z"/><path d="M20 17v5H6.5a2.5 2.5 0 0 1 0-5"/>',
+ building:'<rect x="4" y="2" width="16" height="20" rx="2"/><path d="M9 22v-4h6v4M8 6h.01M12 6h.01M16 6h.01M8 10h.01M12 10h.01M16 10h.01M8 14h.01M12 14h.01M16 14h.01"/>',
+ sparkle:'<path d="M12 3l1.9 5.8L20 11l-6.1 2.2L12 19l-1.9-5.8L4 11l6.1-2.2z"/>'
+};
+const ic=(n,s=16,w=2)=>`<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${IC[n]}</svg>`;
+const PHASE={prep:['Fase preparatória','--c1'],sel:['Seleção e resultado','--c7'],exe:['Execução e pós-contratação','--c3'],tr:['Trilha transversal','--c5']};
+const LIC={proc:'users',stack:'layers',infra:'server',serv:'plug',integ:'arrows',dados:'key',gov:'shield',status:'flag',fora:'eyeoff'};
+const INFRA_IC={ati:'server',cloud:'cloud',ext:'alert',mix:'server',vm:'cpu',fed:'globe',sefaz:'landmark',tbd:'help'};
+const SCAT={dados:['Dados','--c1'],integ:['API e integração','--c3'],id:['Identidade e acesso','--c7'],doc:['Documento e assinatura','--c4'],ext:['Publicação e fonte externa','--c5']};
+const SMETA={bigdata:['dados','database'],catmat:['dados','book'],peigw:['integ','plug'],keycloak:['id','key'],govbr:['id','idcard'],expresso:['id','idcard'],google:['id','idcard'],xvia:['doc','pen'],sei:['doc','file'],pncp:['ext','megaphone'],brasilapi:['ext','building']};
+const STC={built:['var(--ink-2)','M-3.5,0 L-1,2.5 L3.5,-2.5'],spec:['var(--c1)','M-3,3 L3,-3 M1.5,-4.5 L4.5,-1.5'],manual:['var(--c2)','M-3.5,0 h.01 M0,0 h.01 M3.5,0 h.01'],road:['var(--ink-3)','M0,-3.5 V0 L2.5,2']};
+
+/* ================= GRUPOS DO FLUXO ================= */
+const GRP=[
+ {id:'grp-1',row:'r1',lanes:[1],num:'1',t:'PCA e DFD',ph:'prep',ic:'clipboard'},
+ {id:'grp-2',row:'r1',lanes:[2,3],num:'2·3',t:'Planejamento e pesquisa de preços',ph:'prep',ic:'filecheck',small:'No planejado a pesquisa de preços fica no bloco do planejamento',cols:2},
+ {id:'grp-4',row:'r1',lanes:[4],num:'4',t:'Central de Licitações',ph:'prep',ic:'landmark'},
+ {id:'grp-5',row:'r1',lanes:[5],num:'5',t:'Seleção do fornecedor',ph:'sel',ic:'gavel',cols:2},
+ {id:'grp-9',row:'r2',lanes:[9],num:'9',t:'Registro e execução contratual',ph:'exe',ic:'contract'},
+ {id:'grp-8',row:'r2',lanes:[8],num:'8',t:'Almoxarifado e patrimônio',ph:'exe',ic:'package'},
+ {id:'grp-7',row:'r2',lanes:[7],num:'7',t:'Execução orçamentária e financeira',ph:'exe',ic:'coins'},
+ {id:'grp-6',row:'r2',lanes:[6],num:'6',t:'Registro de resultado',gapg:1,ph:'sel',ic:'award'}
+];
+const FLOW=[['grp-1','grp-2','DFD e PCA seguem para o planejamento'],['grp-2','grp-4','Processo instruído (ETP, TR, preços) vai à Central'],['grp-4','grp-5','Processo liberado para seleção'],['grp-5','grp-6','Certame concluído'],['grp-6','grp-7','Resultado registrado; ARP e contrato'],['grp-7','grp-8','Empenho e liquidação'],['grp-8','grp-9','Recebimento e controle']];
+
+/* ================= ESTADO ================= */
+const on=new Set();let sel=null;
+try{const s=JSON.parse(localStorage.getItem('ecpe-flow-layers')||'null');if(Array.isArray(s))s.forEach(x=>on.add(x));}catch(e){}
+const save=()=>{try{localStorage.setItem('ecpe-flow-layers',JSON.stringify([...on]))}catch(e){}};
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const byId=Object.fromEntries(N.map(n=>[n.id,n]));const svById=Object.fromEntries(SV.map(s=>[s.id,s]));
+const visible=id=>{const n=byId[id];return n?(!n.fora||on.has('fora')):true};
+const PERSON=ic('user',13);
+
+function drawToggles(){
+ for(const g of [1,2]){const el=document.getElementById('g'+g);el.querySelectorAll('.tg').forEach(x=>x.remove());
+  LAYERS.filter(l=>l.g===g).forEach(l=>{const b=document.createElement('button');b.className='tg';b.setAttribute('aria-pressed',on.has(l.id));b.innerHTML=`<span class="box"></span>${ic(LIC[l.id],14)}${l.n}`;b.onclick=()=>{on.has(l.id)?on.delete(l.id):on.add(l.id);save();render();};el.appendChild(b);});}
+}
+document.querySelectorAll('[data-preset]').forEach(b=>b.onclick=()=>{on.clear();
+ ({tec:['stack','infra','serv','integ','dados'],ges:['proc','gov','status','fora'],all:LAYERS.map(l=>l.id),none:[]})[b.dataset.preset].forEach(x=>on.add(x));save();render();});
+
+/* ================= NÓS ================= */
+function nodeHTML(n){
+ const s=ST[n.st];
+ let h=on.has('status')?`<span class="chip ico stdot ${s[0]}" data-tip="${esc(n.stTxt||s[2])}"><i>${s[1]}</i></span>`:'';
+ const ty=n.gap?'puzzle':(n.grp==='cgov'?'globe':'app');h+=`<div class="code"><span class="ty">${ic(ty,12)}${n.code}</span>${on.has('status')&&n.compl?`<span>${n.compl}%</span>`:''}</div><div class="nm">${esc(n.name)}</div><div class="sb">${esc(n.sub)}</div>`;
+ if(on.has('status'))h+=`<div class="ly"><span class="chip ${s[0]}"><i>${s[1]}</i>${esc(n.stTxt||s[2])}</span>${n.compl?`<div class="mb"><b style="width:${n.compl}%"></b></div>`:''}<div style="margin-top:3px;color:var(--ink-2)">${esc(n.mat)}</div></div>`;
+ if(on.has('proc')&&!n.gap)h+=`<div class="ly"><span class="k">${ic('users',11)}Usuários</span>${esc(n.users.join(', '))}</div>`;
+ if(on.has('stack')&&!n.gap)h+=`<div class="ly"><span class="k">${ic('layers',11)}Stack</span><div class="tags">${n.stack.map(t=>`<span class="tag">${esc(t)}</span>`).join('')}${n.ia?`<span class="tag ia">${ic('sparkle',10)} IA · ${esc(n.ia)}</span>`:''}</div></div>`;
+ if(on.has('infra')&&!n.gap){const c=INFRA[n.infra[0]];h+=`<div class="ly"><span class="infra"><span class="ii" style="background:var(${c[1]})">${ic(INFRA_IC[n.infra[0]],12,2.2)}</span>${c[0]}</span><div style="color:var(--ink-2);margin-top:2px">${esc(n.infra[1])}</div></div>`;}
+ if(on.has('dados')&&n.keys.length)h+=`<div class="ly"><span class="k">${ic('key',11)}Chaves</span><div class="tags">${n.keys.map(t=>`<span class="tag key">${esc(t)}</span>`).join('')}</div></div>`;
+ if(on.has('gov')){const g=GOV[n.gov];h+=`<div class="ly"><span class="k">${ic('shield',11)}Governança</span>${esc(g.dono)} · ${esc(g.cons)}<div style="color:var(--ink-2)">${esc(g.focal)}</div></div>`;}
+ return h;
+}
+function nodeEl(n){const cls=['node'];if(n.gap)cls.push('gap');if(n.fora)cls.push('out');if(sel===n.id)cls.push('sel');
+ const st=on.has('infra')&&!n.gap?`style="border-color:var(${INFRA[n.infra[0]][1]})"`:'';
+ return `<div class="${cls.join(' ')}" ${st} tabindex="0" data-id="${n.id}">${nodeHTML(n)}</div>`;}
+function groupHTML(g){
+ const lanes=LANES.filter(l=>g.lanes.includes(l.id));
+ const nodes=N.filter(n=>g.lanes.includes(n.lane)&&visible(n.id));
+ const P=PHASE[g.ph];let h=`<div class="gp ${g.gapg?'gapg':''}" id="${g.id}" style="--ph:var(${P[1]})"><div class="gh"><span class="ic">${ic(g.ic,19)}</span><span class="t"><span class="ph">${P[0]}</span><span class="num">${g.num}</span>${g.t}${g.small?`<small>${g.small}</small>`:''}</span></div>`;
+ if(on.has('proc')){const users=[...new Set(lanes.flatMap(l=>l.users))];
+  h+=`<div class="acts">${lanes.map(l=>esc(l.acts)).join('. ')}<div class="actors">${users.map(u=>`<span class="actor">${PERSON}${esc(u)}</span>`).join('')}</div><div class="hoje">${lanes.map(l=>esc(l.hoje)).join('. ')}</div></div>`;}
+ h+=`<div class="nodes ${g.cols===2?'n2':''}">${nodes.map(nodeEl).join('')}</div></div>`;
+ return h;
+}
+function render(){
+ drawToggles();
+ document.getElementById('r1').innerHTML=GRP.filter(g=>g.row==='r1').map(groupHTML).join('');
+ document.getElementById('r2').innerHTML=GRP.filter(g=>g.row==='r2').map(groupHTML).join('');
+ const tl=LANES.find(l=>l.id==='T');
+ document.getElementById('trail').innerHTML=`<div class="gh" style="margin:0"><span class="ic">${ic('users',19)}</span><span class="t"><span class="ph">${PHASE.tr[0]}</span><span class="num">T</span>${tl.n}<small>Atravessa o fluxo</small></span></div><div>${on.has('proc')?`<div class="acts" style="margin:0 0 8px">${esc(tl.acts)}<div class="actors">${tl.users.map(u=>`<span class="actor">${PERSON}${esc(u)}</span>`).join('')}</div><div class="hoje">${esc(tl.hoje)}</div></div>`:''}<div class="nodes">${N.filter(n=>n.lane==='T').map(nodeEl).join('')}</div></div>`;
+ document.getElementById('trail').id='trail';
+ const band=document.getElementById('svcband');band.hidden=!on.has('serv');
+ document.getElementById('svcs').innerHTML=Object.entries(SCAT).map(([k,c])=>`<div class="svcgrp"><div class="gt"><span class="dot" style="background:var(${c[1]})"></span>${c[0]}</div><div class="items">${SV.filter(s=>SMETA[s.id][0]===k).map(s=>`<div class="svc" style="--sc:var(${c[1]})" tabindex="0" data-svc="${s.id}"><span class="si">${ic(SMETA[s.id][1],13,2.2)}</span>${esc(s.n)}<small>${esc(s.o)}</small></div>`).join('')}</div></div>`).join('');
+ document.querySelectorAll('.node').forEach(el=>{el.onclick=()=>select(el.dataset.id);el.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();select(el.dataset.id)}}});
+ document.querySelectorAll('.svc').forEach(el=>{el.onclick=()=>select('svc:'+el.dataset.svc);el.onkeydown=e=>{if(e.key==='Enter')select('svc:'+el.dataset.svc)}});
+ legend();panel();requestAnimationFrame(edges);
+}
+
+/* ================= ARESTAS ================= */
+function rel(el,m){const r=el.getBoundingClientRect();return {x:r.left-m.left,y:r.top-m.top,w:r.width,h:r.height};}
+function anchorPath(A,B,bulge){
+ const ac={x:A.x+A.w/2,y:A.y+A.h/2},bc={x:B.x+B.w/2,y:B.y+B.h/2};const dx=bc.x-ac.x,dy=bc.y-ac.y;
+ if(Math.abs(dx)<40&&Math.abs(dy)<A.h/2+B.h/2+60&&bulge){const x1=A.x+A.w,y1=ac.y,x2=B.x+B.w,y2=bc.y;return `M${x1},${y1} C${x1+bulge},${y1} ${x2+bulge},${y2} ${x2},${y2}`;}
+ if(Math.abs(dx)>=Math.abs(dy)*1.1){const s=dx>0?1:-1;const x1=s>0?A.x+A.w:A.x,x2=s>0?B.x:B.x+B.w;const y1=ac.y,y2=bc.y;const c=Math.max(36,Math.abs(x2-x1)/2)*s;return `M${x1},${y1} C${x1+c},${y1} ${x2-c},${y2} ${x2},${y2}`;}
+ const s=dy>0?1:-1;const y1=s>0?A.y+A.h:A.y,y2=s>0?B.y:B.y+B.h;const x1=ac.x,x2=bc.x;const c=Math.max(36,Math.abs(y2-y1)/2)*s;return `M${x1},${y1} C${x1},${y1+c} ${x2},${y2-c} ${x2},${y2}`;
+}
+function edges(){
+ const dg=document.getElementById('dg'),m=dg.getBoundingClientRect(),svg=document.getElementById('edges');
+ svg.setAttribute('viewBox',`0 0 ${m.width} ${m.height}`);
+ const el=id=>id.startsWith('svc:')?document.querySelector(`[data-svc="${id.slice(4)}"]`):(id.startsWith('grp-')?document.getElementById(id):document.querySelector(`.node[data-id="${id}"]`));
+ const focus=sel;const touches=(a,b)=>!focus||focus===a||focus===b;
+ let out=`<defs>
+ <marker id="ar-flow" viewBox="0 0 10 10" refX="8" refY="5" markerUnits="userSpaceOnUse" markerWidth="16" markerHeight="16" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--flow)"/></marker>
+ <marker id="ar-int" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--ink-2)"/></marker>
+ <marker id="ar-ov" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6"><circle cx="5" cy="5" r="4" fill="var(--critical)"/></marker></defs>`;
+ // fluxo base entre etapas
+ FLOW.forEach(([a,b,l])=>{const A=rel(el(a),m),B=rel(el(b),m);let d;
+  if(a==='grp-5'){const x1=A.x+A.w*0.75,y1=A.y+A.h,x2=B.x+B.w*0.5,y2=B.y;d=`M${x1},${y1} C${x1},${y1+50} ${x2},${y2-50} ${x2},${y2}`;}
+  else if(A.y>B.y+A.h||(A.x>B.x)){const x1=A.x,y1=A.y+28,x2=B.x+B.w,y2=B.y+28;d=`M${x1},${y1} L${x2+4},${y2}`;}
+  else{const x1=A.x+A.w,y1=A.y+28,x2=B.x,y2=B.y+28;d=`M${x1},${y1} L${x2-4},${y2}`;}
+  out+=`<g opacity="${sel?.35:1}"><path d="${d}" fill="none" stroke="var(--flow)" stroke-width="5" stroke-linecap="round" marker-end="url(#ar-flow)"/><path d="${d}" fill="none" stroke="transparent" stroke-width="16" data-tip="${esc(l)}" data-tipm="Fluxo do macroprocesso" style="pointer-events:stroke"/></g>`;});
+ // trilha transversal
+ {const T=document.querySelector('#trail'),G5=el('grp-5');if(T&&G5){const A=rel(T,m),B=rel(G5,m);const R=Math.max(A.x+A.w,B.x+B.w)+16;const ya=A.y+A.h/2,yb=B.y+B.h-30;const d=`M${A.x+A.w},${ya} H${R} V${yb} H${B.x+B.w+3}`;
+  out+=`<g opacity="${sel?.35:1}"><path d="${d}" stroke="var(--flow)" stroke-width="2.5" stroke-dasharray="3 6" stroke-linecap="round" stroke-linejoin="round" fill="none" marker-end="url(#ar-int)"/><path d="${d}" stroke="transparent" stroke-width="14" fill="none" data-tip="Fornecedor participa da seleção" data-tipm="Trilha transversal" style="pointer-events:stroke"/></g>`;}}
+ const draw=(a,b,kind,label,state,color,w)=>{const ea=el(a),eb=el(b);if(!ea||!eb)return;const A=rel(ea,m),B=rel(eb,m);
+  let d;if(kind==='svc'){const x1=A.x+A.w/2,y1=A.y+A.h,x2=B.x+B.w/2,y2=B.y;const c=Math.max(40,(y2-y1)/2);d=`M${x1},${y1} C${x1},${y1+c} ${x2},${y2-c} ${x2},${y2}`;}
+  else d=anchorPath(A,B,kind==='ov'?50:34);
+  const op=touches(a,b)?(kind==='svc'&&!focus?.45:1):.08;const dash=state?STATE[state][1]:'0';
+  out+=`<g opacity="${op}"><path d="${d}" fill="none" stroke="${color}" stroke-width="${w}" stroke-dasharray="${dash}" stroke-linecap="round" ${kind==='int'?'data-st="'+state+'"':''} ${kind==='ov'?'data-ov="1"':''} ${kind!=='svc'?'marker-end="url(#ar-'+kind+')"':''}/><path d="${d}" fill="none" stroke="transparent" stroke-width="12" data-tip="${esc(label)}" data-tipm="${esc((state?STATE[state][0]+' · ':'')+nm(a)+' → '+nm(b))}" style="pointer-events:stroke"/></g>`;};
+ if(on.has('serv'))SL.forEach(([a,b,l,s])=>{if(visible(a))draw(a,'svc:'+b,'svc',l,s,'var('+SCAT[SMETA[b][0]][1]+')',1.6)});
+ if(on.has('integ'))IL.forEach(([a,b,l,s])=>{if(visible(a)&&visible(b))draw(a,b,'int',l,s,STC[s][0],2.2)});
+ if(on.has('status'))OL.forEach(([a,b,l,g])=>{if(visible(a)&&visible(b))draw(a,b,'ov',l+(g==='alto'?' · grau alto':' · grau médio'),null,g==='alto'?'var(--critical)':'var(--serious)',g==='alto'?3:2)});
+ svg.innerHTML=out;
+ svg.querySelectorAll('path[data-st],path[data-ov]').forEach(p=>{const L=p.getTotalLength(),pt=p.getPointAtLength(L*.5);const g=document.createElementNS('http://www.w3.org/2000/svg','g');g.setAttribute('transform',`translate(${pt.x},${pt.y})`);
+  if(p.dataset.st){const c=STC[p.dataset.st];g.innerHTML=`<circle r="8" fill="var(--surface)" stroke="${c[0]}" stroke-width="1.8"/><path d="${c[1]}" fill="none" stroke="${c[0]}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>`;}
+  else{g.innerHTML=`<circle r="8" fill="var(--surface)" stroke="${p.getAttribute('stroke')}" stroke-width="1.8"/><path d="M-3,-3 L3,3 M3,-3 L-3,3" stroke="${p.getAttribute('stroke')}" stroke-width="1.8" stroke-linecap="round"/>`;}
+  p.parentNode.appendChild(g);});
+ const linked=new Set();if(sel){linked.add(sel);
+  const add=(arr,pre)=>arr.forEach(([a,b])=>{const B=pre?pre+b:b;if(a===sel)linked.add(B);if(B===sel)linked.add(a);});
+  if(on.has('serv'))add(SL,'svc:');if(on.has('integ'))add(IL);if(on.has('status'))add(OL);}
+ document.querySelectorAll('.node').forEach(n=>n.classList.toggle('dim',!!sel&&linked.size>1&&!linked.has(n.dataset.id)));
+ document.querySelectorAll('.svc').forEach(n=>n.classList.toggle('dim',!!sel&&linked.size>1&&!linked.has('svc:'+n.dataset.svc)));
+}
+const nm=id=>id.startsWith('svc:')?svById[id.slice(4)].n:(byId[id].name+(byId[id].grp==='pemais'?' · '+byId[id].sub:''));
+
+/* ================= PAINEL ================= */
+function select(id){sel=sel===id?null:id;render();}
+function panel(){
+ const P=document.getElementById('panel');
+ if(!sel){P.innerHTML=`<h2>Detalhe</h2><p class="empty">Clique num sistema ou serviço. O detalhe mostra todas as camadas, ativas ou não, e o diagrama destaca as ligações dele. Clique de novo para soltar.</p>`;return;}
+ if(sel.startsWith('svc:')){const s=svById[sel.slice(4)];const users=SL.filter(x=>x[1]===s.id).map(x=>`<li>${esc(nm(x[0]))}: ${esc(x[2])} <span style="color:var(--ink-3)">(${STATE[x[3]][0]})</span></li>`).join('');
+  P.innerHTML=`<h3>${esc(s.n)}</h3><div class="sb">Serviço · ${esc(s.o)}</div><dl><dt>Papel</dt><dd>${esc(s.d)}</dd><dt>Quem usa</dt><dd><ul>${users||'<li>Nenhum vínculo registrado</li>'}</ul></dd></dl>`;return;}
+ const n=byId[sel],g=GOV[n.gov],s=ST[n.st],c=INFRA[n.infra[0]];const lane=LANES.find(l=>l.id===n.lane);
+ const ints=IL.filter(x=>x[0]===n.id||x[1]===n.id).map(x=>`<li>${x[0]===n.id?'→ '+esc(nm(x[1])):'← '+esc(nm(x[0]))}: ${esc(x[2])} <span style="color:var(--ink-3)">(${STATE[x[3]][0]})</span></li>`).join('');
+ const svs=SL.filter(x=>x[0]===n.id).map(x=>`<li>${esc(svById[x[1]].n)}: ${esc(x[2])}</li>`).join('');
+ const ovs=OL.filter(x=>x[0]===n.id||x[1]===n.id).map(x=>`<li>${esc(x[2])} com ${esc(nm(x[0]===n.id?x[1]:x[0]))}</li>`).join('');
+ P.innerHTML=`<h3>${esc(n.name)}</h3><div class="sb">${n.code} · ${esc(n.sub)}</div><dl>
+ <dt>Etapa ATI</dt><dd>${lane.id==='T'?'Trilha':lane.id} · ${esc(lane.n)}</dd>
+ <dt>Status</dt><dd><span class="chip ${s[0]}"><i>${s[1]}</i>${esc(n.stTxt||s[2])}</span>${n.compl?` · ${n.compl}% de completude`:''}</dd>
+ <dt>Maturidade</dt><dd>${esc(n.mat)}</dd><dt>Usuários</dt><dd>${esc(n.users.join(', '))}</dd>
+ <dt>Stack</dt><dd>${n.stack.length?esc(n.stack.join(', ')):'Não se aplica'}${n.ia?`<br><b>IA:</b> ${esc(n.ia)}`:''}</dd>
+ <dt>Infra</dt><dd><span class="infra"><span class="ii" style="background:var(${c[1]})">${ic(INFRA_IC[n.infra[0]],12,2.2)}</span>${c[0]}</span><br>${esc(n.infra[1])}</dd>
+ <dt>Chaves</dt><dd>${n.keys.length?esc(n.keys.join(', ')):'Nenhuma registrada'}</dd>
+ <dt>Dono</dt><dd>${esc(g.dono)}</dd><dt>Construtor</dt><dd>${esc(g.cons)}</dd><dt>Ponto focal</dt><dd>${esc(g.focal)}</dd><dt>Instrumento</dt><dd>${esc(g.instr)}</dd>
+ <dt>Serviços</dt><dd>${svs?`<ul>${svs}</ul>`:'Nenhum registrado'}</dd><dt>Integrações</dt><dd>${ints?`<ul>${ints}</ul>`:'Nenhuma registrada'}</dd>
+ <dt>Sobreposições</dt><dd>${ovs?`<ul>${ovs}</ul>`:'Nenhuma registrada'}</dd><dt>Nota</dt><dd>${esc(n.note)}</dd></dl>`;
+}
+
+/* ================= LEGENDA ================= */
+function legend(){
+ const ln=(c,w,dash)=>`<svg width="30" height="8"><line x1="1" y1="4" x2="29" y2="4" stroke="${c}" stroke-width="${w}" stroke-dasharray="${dash||0}" stroke-linecap="round"/></svg>`;
+ const badge=(c,d)=>`<svg width="20" height="20" viewBox="-10 -10 20 20"><circle r="8" fill="var(--surface)" stroke="${c}" stroke-width="1.8"/><path d="${d}" fill="none" stroke="${c}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+ let h=`<div class="h">Fases do processo</div>`+Object.values(PHASE).map(p=>`<div class="row2"><span class="ph-sw" style="background:var(${p[1]})"></span>${p[0]}</div>`).join('')+
+ `<div class="h">Base</div><div class="row2">${ln('var(--flow)',5)}Fluxo do macroprocesso (ATI)</div><div class="row2">${ln('var(--flow)',2.5,'3 6')}Trilha transversal</div><div class="row2"><span style="color:var(--ink-2)">${ic('app',14)}</span>Sistema</div><div class="row2"><span style="color:var(--critical)">${ic('puzzle',14)}</span>Capacidade sem sistema</div><div class="row2"><span style="color:var(--ink-2)">${ic('globe',14)}</span>Plataforma federal</div>`;
+ if(on.has('status'))h+=`<div class="h">${ic('flag',11)} Status e sobreposições</div>`+Object.values(ST).map(s=>`<div class="row2"><span class="chip ${s[0]}"><i>${s[1]}</i>${s[2]}</span></div>`).join('')+`<div class="row2">${badge('var(--critical)','M-3,-3 L3,3 M3,-3 L-3,3')}Sobreposição alta (linha grossa)</div><div class="row2">${badge('var(--serious)','M-3,-3 L3,3 M3,-3 L-3,3')}Sobreposição média</div>`;
+ if(on.has('infra'))h+=`<div class="h">${ic('server',11)} Infra (borda do sistema)</div>`+Object.entries(INFRA).map(([k,c])=>`<div class="row2"><span class="infra"><span class="ii" style="background:var(${c[1]})">${ic(INFRA_IC[k],12,2.2)}</span></span>${c[0]}</div>`).join('');
+ if(on.has('integ'))h+=`<div class="h">${ic('arrows',11)} Integrações (estado)</div>`+Object.entries(STATE).map(([k,s])=>`<div class="row2">${badge(STC[k][0],STC[k][1])}${ln(STC[k][0],2.2,s[1])}${s[0]}</div>`).join('');
+ if(on.has('serv'))h+=`<div class="h">${ic('plug',11)} Serviços (cor da ligação)</div>`+Object.values(SCAT).map(c=>`<div class="row2">${ln('var('+c[1]+')',2)}${c[0]}</div>`).join('')+`<div class="row2" style="font-size:11px">Traço da ligação segue o estado: contínua, tracejada, manual ou roteiro</div>`;
+ if(on.has('proc'))h+=`<div class="h">${ic('users',11)} Processos e usuários</div><div class="row2"><span class="actor">${PERSON}perfil</span>Usuário da etapa; (H) inferido</div>`;
+ if(on.has('stack'))h+=`<div class="h">${ic('layers',11)} Stack</div><div class="row2"><span class="tag ia">${ic('sparkle',10)} IA</span>Uso de IA no produto</div>`;
+ if(on.has('dados'))h+=`<div class="h">${ic('key',11)} Dados</div><div class="row2"><span class="tag key">chave</span>Identificador usado</div>`;
+ document.getElementById('legend').innerHTML=h;
+}
+
+/* ================= TOOLTIP, TEMA ================= */
+const T=document.getElementById('tip');
+document.addEventListener('mousemove',e=>{const el=e.target.closest('[data-tip]');if(!el){T.style.opacity=0;return;}
+ T.innerHTML=`<b>${el.getAttribute('data-tip')}</b><span>${el.getAttribute('data-tipm')||''}</span>`;T.style.opacity=1;
+ const w=T.offsetWidth,h=T.offsetHeight;let x=e.clientX+14,y=e.clientY+14;if(x+w>innerWidth-8)x=e.clientX-w-14;if(y+h>innerHeight-8)y=e.clientY-h-14;T.style.left=x+'px';T.style.top=y+'px';});
+function setTheme(v){const r=document.documentElement;v==='auto'?r.removeAttribute('data-theme'):r.setAttribute('data-theme',v);try{localStorage.setItem('ecpe-theme',v)}catch(e){}}
+document.querySelectorAll('[data-theme-set]').forEach(b=>b.onclick=()=>setTheme(b.dataset.themeSet));
+try{setTheme(localStorage.getItem('ecpe-theme')||'auto')}catch(e){}
+let rt;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(edges,80)});
+const params=new URLSearchParams(location.search);if(params.get('layers')!==null){on.clear();params.get('layers').split(',').filter(Boolean).forEach(x=>on.add(x));}
+render();
+</script>
+</body>
+</html>
